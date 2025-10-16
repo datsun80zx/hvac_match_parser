@@ -1,21 +1,36 @@
 package internal
 
-func NormalizeString(e Equipment) {
-	const maxFL = 11
-	const maxCL = 10
-	model := e.GetModelNumber()
+import "strings"
 
-	if e.EquipmentType == "furnace" {
-		if len(model) <= maxFL {
-			e.NormalizedModelNumber = model
-		}
-		e.NormalizedModelNumber = model[:maxFL]
-	}
+/* To Normalize Model #'s:
+Step 1: determine type of equipment
+Step 2: truncate length of string depending on type of equipment
+*/
 
-	if e.EquipmentType == "coil" {
-		if len(model) <= maxCL {
-			e.NormalizedModelNumber = model
+func NormalizeString(m string, equipmentType string) string {
+	// Max Equipment Model # Lengths:
+	const ahl = 12
+	const othEq = 11
+
+	switch equipmentType {
+	case "airhandler":
+		if len(m) >= ahl {
+			return m[:ahl]
 		}
-		e.NormalizedModelNumber = model[:maxCL]
+	case "coil":
+		if len(m) > 0 && strings.ToLower(m)[0] != 'c' {
+			if len(m) > 2 {
+				return m[2:]
+			}
+		}
+		if len(m) >= othEq {
+			return m[:othEq]
+		}
+
+	default:
+		if len(m) >= othEq {
+			return m[:othEq]
+		}
 	}
+	return m
 }

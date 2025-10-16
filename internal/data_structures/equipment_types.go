@@ -1,59 +1,31 @@
 package data_structures
 
-type Equipment interface {
-	GetModelNumber() string
-	CheckType() string
-}
-
 type Furnace struct {
 	InputModelNumber      string
 	NormalizedModelNumber string
 	EquipmentType         string
-}
-
-func (F Furnace) GetModelNumber() string {
-	return F.InputModelNumber
-}
-
-func (F Furnace) CheckType() string {
-	return F.EquipmentType
+	Brand                 string
 }
 
 type OutdoorUnit struct {
 	InputModelNumber      string
 	NormalizedModelNumber string
 	HeatPump              bool
-	EquipmentType         string
-}
-
-func (O OutdoorUnit) GetModelNumber() string {
-	return O.InputModelNumber
-}
-
-func (O OutdoorUnit) CheckType() string {
-	return O.EquipmentType
+	Brand                 string
 }
 
 type IndoorUnit struct {
 	InputModelNumber      string
 	NormalizedModelNumber string
 	AirHandler            bool
-	EquipmentType         string
-}
-
-func (I IndoorUnit) GetModelNumber() string {
-	return I.InputModelNumber
-}
-
-func (I IndoorUnit) CheckType() string {
-	return I.EquipmentType
+	Brand                 string
 }
 
 type AHRIRecord struct {
 	AHRINumber  string
-	OutdoorUnit OutdoorUnit
-	IndoorUnit  IndoorUnit
-	Furnace     Furnace
+	OutdoorUnit string
+	IndoorUnit  string
+	Furnace     string
 }
 
 type ComponentKey struct {
@@ -68,4 +40,10 @@ type OutputCSV struct {
 	Furnace        string
 	EvaporatorCoil string
 	AirHandler     string
+}
+
+type Equipment struct {
+	Furnaces     []Furnace
+	OutdoorUnits []OutdoorUnit
+	IndoorUnits  []IndoorUnit
 }
