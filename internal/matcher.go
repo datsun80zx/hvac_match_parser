@@ -8,39 +8,109 @@ import (
 
 // The idea here is to generate a Cartesian product of the different system types.
 func GenerateFullSystemEquipmentConfig(e data_structures.Equipment) []data_structures.ComponentKey {
+	equipConfigs := make([]data_structures.ComponentKey, 0)
 
-	totalCombinations := len(e.Furnaces) * len(e.IndoorUnits) * len(e.OutdoorUnits)
-	equipConfigs := make([]data_structures.ComponentKey, 0, totalCombinations)
+	// Discover all unique brands
+	brandMap := make(map[string]bool)
 
 	for _, furnace := range e.Furnaces {
-		for _, indoorUnit := range e.IndoorUnits {
-			for _, outdoorUnit := range e.OutdoorUnits {
+		brandMap[furnace.Brand] = true
+	}
+	for _, indoor := range e.IndoorUnits {
+		brandMap[indoor.Brand] = true
+	}
+	for _, outdoor := range e.OutdoorUnits {
+		brandMap[outdoor.Brand] = true
+	}
+
+	// Process each brand separately
+	for brand := range brandMap {
+		// Pre-allocate slices with estimated capacity
+		// This both silences the warning and improves performance
+		brandFurnaces := make([]data_structures.Furnace, 0, len(e.Furnaces)/len(brandMap))
+		brandIndoorUnits := make([]data_structures.IndoorUnit, 0, len(e.IndoorUnits)/len(brandMap))
+		brandOutdoorUnits := make([]data_structures.OutdoorUnit, 0, len(e.OutdoorUnits)/len(brandMap))
+
+		// Filter equipment to only this brand
+		for _, furnace := range e.Furnaces {
+			if furnace.Brand == brand {
+				brandFurnaces = append(brandFurnaces, furnace)
+			}
+		}
+
+		for _, indoor := range e.IndoorUnits {
+			if indoor.Brand == brand {
+				brandIndoorUnits = append(brandIndoorUnits, indoor)
+			}
+		}
+
+		for _, outdoor := range e.OutdoorUnits {
+			if outdoor.Brand == brand {
+				brandOutdoorUnits = append(brandOutdoorUnits, outdoor)
+			}
+		}
+
+		// Generate combinations only within this brand
+		for _, furnace := range brandFurnaces {
+			for _, indoorUnit := range brandIndoorUnits {
+				for _, outdoorUnit := range brandOutdoorUnits {
+					equipConfig := data_structures.ComponentKey{
+						Brand:       furnace.Brand,
+						Furnace:     furnace,
+						IndoorUnit:  indoorUnit,
+						OutdoorUnit: outdoorUnit,
+					}
+					equipConfigs = append(equipConfigs, equipConfig)
+				}
+			}
+		}
+	}
+
+	return equipConfigs
+}
+
+func GenerateAirHandlerEquipmentConfig(e data_structures.Equipment) []data_structures.ComponentKey {
+	equipConfigs := make([]data_structures.ComponentKey, 0)
+
+	// Collect all unique brands
+	brandMap := make(map[string]bool)
+
+	for _, indoor := range e.IndoorUnits {
+		brandMap[indoor.Brand] = true
+	}
+	for _, outdoor := range e.OutdoorUnits {
+		brandMap[outdoor.Brand] = true
+	}
+
+	// Process each brand separately
+	for brand := range brandMap {
+		// Pre-allocate with estimated capacity
+		brandIndoorUnits := make([]data_structures.IndoorUnit, 0, len(e.IndoorUnits)/len(brandMap))
+		brandOutdoorUnits := make([]data_structures.OutdoorUnit, 0, len(e.OutdoorUnits)/len(brandMap))
+
+		// Filter to only this brand's equipment
+		for _, indoor := range e.IndoorUnits {
+			if indoor.Brand == brand {
+				brandIndoorUnits = append(brandIndoorUnits, indoor)
+			}
+		}
+
+		for _, outdoor := range e.OutdoorUnits {
+			if outdoor.Brand == brand {
+				brandOutdoorUnits = append(brandOutdoorUnits, outdoor)
+			}
+		}
+
+		// Generate combinations only within this brand
+		for _, indoorUnit := range brandIndoorUnits {
+			for _, outdoorUnit := range brandOutdoorUnits {
 				equipConfig := data_structures.ComponentKey{
-					Brand:       furnace.Brand,
-					Furnace:     furnace,
+					Brand:       indoorUnit.Brand,
 					IndoorUnit:  indoorUnit,
 					OutdoorUnit: outdoorUnit,
 				}
 				equipConfigs = append(equipConfigs, equipConfig)
 			}
-		}
-	}
-	return equipConfigs
-}
-
-func GenerateAirHandlerEquipmentConfig(e data_structures.Equipment) []data_structures.ComponentKey {
-
-	totalCombinations := len(e.IndoorUnits) * len(e.OutdoorUnits)
-	equipConfigs := make([]data_structures.ComponentKey, 0, totalCombinations)
-
-	for _, indoorUnit := range e.IndoorUnits {
-		for _, outdoorUnit := range e.OutdoorUnits {
-			equipConfig := data_structures.ComponentKey{
-				Brand:       indoorUnit.Brand,
-				IndoorUnit:  indoorUnit,
-				OutdoorUnit: outdoorUnit,
-			}
-			equipConfigs = append(equipConfigs, equipConfig)
 		}
 	}
 
@@ -237,7 +307,9 @@ func FindCertifiedMatches(
 			}
 
 			output := data_structures.OutputCSV{
-				AHRINumber:     ahriNumber, // And here too
+				AHRINumber:     ahriNumber,
+				Brand:          combo.Brand,
+				Orientation:    "",
 				TypeOfSystem:   systemType,
 				OutdoorUnit:    combo.OutdoorUnit.InputModelNumber,
 				Furnace:        "",
