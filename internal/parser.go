@@ -9,7 +9,7 @@ Step 2: truncate length of string depending on type of equipment
 
 func NormalizeString(m string, equipmentType string) string {
 	// Max Equipment Model # Lengths:
-	const ahl = 12
+	const ahl = 11
 	const othEq = 11
 
 	switch equipmentType {

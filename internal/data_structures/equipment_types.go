@@ -29,12 +29,16 @@ type AHRIRecord struct {
 }
 
 type ComponentKey struct {
+	Brand       string
 	Furnace     Furnace
 	IndoorUnit  IndoorUnit
 	OutdoorUnit OutdoorUnit
 }
 
 type OutputCSV struct {
+	AHRINumber     string
+	Brand          string
+	Orientation    string
 	TypeOfSystem   string
 	OutdoorUnit    string
 	Furnace        string
