@@ -29,9 +29,9 @@ type AHRIRecord struct {
 }
 
 type ComponentKey struct {
-	OutdoorUnit OutdoorUnit
-	IndoorUnit  IndoorUnit
 	Furnace     Furnace
+	IndoorUnit  IndoorUnit
+	OutdoorUnit OutdoorUnit
 }
 
 type OutputCSV struct {
