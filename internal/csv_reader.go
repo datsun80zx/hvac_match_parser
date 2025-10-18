@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/datsun80zx/hvac_match_parser/internal/data_structures"
 )
@@ -61,9 +62,38 @@ func WriteOutputCSV(matches []data_structures.OutputCSV, filename string) error 
 
 	return nil
 }
+func GetCSVHeader(filename string, reqFields []string) (map[string]int, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("There was an error with opening %s: %w", filename, err)
+	}
+	defer file.Close()
 
-func CSVEquipReader(s string) (data_structures.Equipment, error) {
-	file, err := os.Open(s)
+	r := csv.NewReader(file)
+
+	header, err := r.Read()
+	if err != nil {
+		log.Printf("Error reading header: %v", err)
+		return nil, err
+	}
+
+	columnIndices := make(map[string]int)
+	for i, columnName := range header {
+		cleanName := strings.TrimSpace(strings.ToLower(columnName))
+		columnIndices[cleanName] = i
+	}
+
+	for _, colName := range reqFields {
+		normColName := strings.ToLower(strings.TrimSpace(colName))
+		if _, exists := columnIndices[normColName]; !exists {
+			return nil, fmt.Errorf("required column '%s' not found in csv header", colName)
+		}
+	}
+	return columnIndices, nil
+}
+
+func CSVEquipReader(filename string, headers map[string]int) ([]data_structures.Equipment, error) {
+	file, err := os.Open(filename)
 	if err != nil {
 		log.Println(err)
 	}
@@ -74,13 +104,11 @@ func CSVEquipReader(s string) (data_structures.Equipment, error) {
 	_, err = r.Read()
 	if err != nil {
 		log.Printf("Error reading header: %v", err)
-		return data_structures.Equipment{}, err
+		return []data_structures.Equipment{}, err
 	}
 
-	var furnaceList []data_structures.Furnace
-	var outdoorList []data_structures.OutdoorUnit
-	var indoorList []data_structures.IndoorUnit
-	eq := data_structures.Equipment{}
+	equipmentList := []data_structures.Equipment{}
+	brandIdx := headers["brand"]
 
 	for {
 		record, err := r.Read()
@@ -96,49 +124,35 @@ func CSVEquipReader(s string) (data_structures.Equipment, error) {
 					continue
 				}
 			}
-		}
-		if record[1] != "" {
-			furnaceList = append(furnaceList, data_structures.Furnace{
-				InputModelNumber: record[1],
-				Brand:            record[0],
-			})
-		}
-		if record[2] != "" {
-			outdoorList = append(outdoorList, data_structures.OutdoorUnit{
-				InputModelNumber: record[2],
-				Brand:            record[0],
-				HeatPump:         false,
-			})
-		}
-		if record[3] != "" {
-			outdoorList = append(outdoorList, data_structures.OutdoorUnit{
-				InputModelNumber: record[3],
-				Brand:            record[0],
-				HeatPump:         true,
-			})
-		}
-		if record[4] != "" {
-			indoorList = append(indoorList, data_structures.IndoorUnit{
-				InputModelNumber: record[4],
-				Brand:            record[0],
-				AirHandler:       false,
-			})
-		}
-		if record[5] != "" {
-			indoorList = append(indoorList, data_structures.IndoorUnit{
-				InputModelNumber: record[5],
-				Brand:            record[0],
-				AirHandler:       true,
-			})
+			return nil, fmt.Errorf("error reading CSV: %w", err)
 		}
 
+		if len(record) <= brandIdx {
+			log.Printf("Skipping row with insufficient columns: %v", record)
+			continue
+		}
+
+		brand := record[brandIdx]
+
+		for k, v := range headers {
+			if k == "brand" {
+				continue
+			}
+
+			if v >= len(record) {
+				continue
+			}
+
+			if record[v] != "" {
+				equipmentList = append(equipmentList, data_structures.Equipment{
+					InputModelNumber: record[v],
+					Brand:            brand,
+					Type:             k,
+				})
+			}
+		}
 	}
-
-	eq.Furnaces = furnaceList
-	eq.IndoorUnits = indoorList
-	eq.OutdoorUnits = outdoorList
-
-	return eq, nil
+	return equipmentList, nil
 }
 
 func CSVAHRIReader(s string) ([]data_structures.AHRIRecord, error) {
