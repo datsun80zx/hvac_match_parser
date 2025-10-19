@@ -33,17 +33,18 @@ func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType
 	heatPumps := []data_structures.Equipment{}
 
 	for _, item := range list {
-		switch item.Type {
-		case data_structures.TypeFurnace:
+		if strings.Contains(item.Type, "furnace") {
 			furnaces = append(furnaces, item)
-		case data_structures.TypeACCondenser:
-			airCons = append(airCons, item)
-		case data_structures.TypeAirHandler:
+		} else if strings.Contains(item.Type, "handler") {
 			airHandlers = append(airHandlers, item)
-		case data_structures.TypeEvapCoil:
+		} else if strings.Contains(item.Type, "coil") {
 			coils = append(coils, item)
-		case data_structures.TypeHeatPump:
+		} else if strings.Contains(item.Type, "ac") {
+			airCons = append(airCons, item)
+		} else if strings.Contains(item.Type, "hp") {
 			heatPumps = append(heatPumps, item)
+		} else {
+			return nil, fmt.Errorf("There is an issue with sorting equipment by type in the GenerateFullSystem..func")
 		}
 	}
 
@@ -250,12 +251,15 @@ func BuildAHRIMap(ahriList []data_structures.AHRIRecord) map[string]string {
 
 	for _, record := range ahriList {
 		// Expand each component based on its type
-		furnaceVariations := expandFurnaceWildcard(record.Furnace)
+		furnace := NormalizeString(record.Furnace)
+		indoorUnit := NormalizeString(record.IndoorUnit)
+		outdoorUnit := NormalizeString(record.OutdoorUnit)
+		furnaceVariations := expandFurnaceWildcard(furnace.NormalizedModelNumber)
 
-		indoorVariations := expandIndoorUnitWildcard(record.IndoorUnit)
+		indoorVariations := expandIndoorUnitWildcard(indoorUnit.NormalizedModelNumber)
 
 		// Outdoor units don't have wildcards
-		outdoorVariations := []string{record.OutdoorUnit}
+		outdoorVariations := []string{outdoorUnit.NormalizedModelNumber}
 
 		// Create map entries for all combinations
 		for _, furnace := range furnaceVariations {
@@ -278,6 +282,7 @@ func FindAHRICertification(config data_structures.ComponentKey, ahriMap map[stri
 		config.Furnace.NormalizedModelNumber
 
 	// Look it up in the map
+	fmt.Printf("Looking up: %v\n\n", key)
 	ahriNumber, certified := ahriMap[key]
 	return ahriNumber, certified
 }

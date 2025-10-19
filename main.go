@@ -3,136 +3,178 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/datsun80zx/hvac_match_parser/internal"
+	"github.com/datsun80zx/hvac_match_parser/internal/data_structures"
 )
 
 func main() {
 	// Define the paths to your input CSV files
-	csvFileEquip := "C:/Users/mrich/Downloads/wilson_equipment _list.csv"
-	csvFileAHRI := "C:/Users/mrich/Downloads/ahri_matches.csv"
+	csvFileEquip := "/home/richard/workspace/github.com/datsun80zx/go_practice/hvac_match_parser/Copy of Matchups - Amana Equipment.csv"
+	csvFileAHRI := "/home/richard/workspace/github.com/datsun80zx/go_practice/hvac_match_parser/Matchups - Amana AC Matchups.csv"
 
-	// Step 1: Read and parse the equipment list
-	// This file contains all the individual components (furnaces, indoor units, outdoor units)
-	// that we want to check for AHRI certification
-	fmt.Println("Reading equipment list...")
-	equipmentList, err := internal.CSVEquipReader(csvFileEquip)
-	if err != nil {
-		log.Fatalf("Failed to read equipment CSV file: %v", err)
+	// Define what column headers we are expecting to see in the equipment list csv:
+
+	equipmentFields := []string{
+		"Brand",
+		"Furnace",
+		"Outdoor Unit (ac)",
+		"Outdoor Unit (hp)",
+		"Evaporator Coil",
+		"Air Handler",
 	}
-	fmt.Printf("Loaded %d furnaces, %d indoor units, %d outdoor units\n",
-		len(equipmentList.Furnaces),
-		len(equipmentList.IndoorUnits),
-		len(equipmentList.OutdoorUnits))
 
-	// Step 2: Read and parse the AHRI certified matches database
-	// This file contains all the equipment combinations that have been officially certified
-	fmt.Println("\nReading AHRI certification database...")
+	fmt.Printf("Reading equipment headers...\n\n")
+	equipHeaders, err := internal.GetCSVHeader(csvFileEquip, equipmentFields)
+	if err != nil {
+		log.Fatalf("Failed to read equipment csv headers: %v", err)
+	}
+
+	for header, idx := range equipHeaders {
+		fmt.Printf("Equipment Header %d: %s\n\n", idx, header)
+	}
+
+	// read and parse the equipment list csv starting after the headers have already been read:
+
+	fmt.Printf("\nReading equipment list...\n\n")
+	equipmentList, err := internal.CSVEquipReader(csvFileEquip, equipHeaders)
+	if err != nil {
+		log.Fatalf("failed to read equipment csv file: %v", err)
+	}
+	fmt.Printf("Loaded %d pieces of equipment\n\n", len(equipmentList))
+
+	// Figure out what different brands we are working with:
+
+	fmt.Printf("Identifying brands...\n\n")
+	brandMap := internal.BrandIdentify(equipmentList)
+	fmt.Printf("==== Brands (%d) ====\n\n", len(brandMap))
+	for k := range brandMap {
+		fmt.Printf("%s\n", k)
+	}
+
+	// Normalize equipment:
+	fmt.Printf("\nNormalizing equipment model #'s...\n\n")
+	for i := range equipmentList {
+		equipmentList[i] = internal.NormalizeString(equipmentList[i])
+	}
+	fmt.Printf("Equipment normalization complete!\n\n")
+
+	fmt.Printf("First 5 pieces:\n\n")
+
+	for i := 0; i < 5; i++ {
+		fmt.Printf("Equipment type: %v\nEquipment Input Model #: %v\nEquipment Normalized Model #: %v\nEquipment brand: %v\n\n\n",
+			equipmentList[i].Type,
+			equipmentList[i].InputModelNumber,
+			equipmentList[i].NormalizedModelNumber,
+			equipmentList[i].Brand)
+	}
+
+	// Read and parse ahri certified matches:
+	fmt.Printf("Reading ahri certified matches...\n\n")
 	ahriList, err := internal.CSVAHRIReader(csvFileAHRI)
 	if err != nil {
-		log.Fatalf("Failed to read AHRI CSV file: %v", err)
+		log.Fatalf("Failed to read ahri csv file: %v", err)
 	}
-	fmt.Printf("Loaded %d AHRI certified combinations\n", len(ahriList))
+	fmt.Printf("Loaded %d ahri records\n\n", len(ahriList))
 
-	// Step 3: Normalize all equipment model numbers
-	// Normalization ensures that model numbers from different sources can be compared
-	// consistently by truncating them to standard lengths and applying format rules
-	fmt.Println("\nNormalizing equipment model numbers...")
-
-	// Normalize furnace model numbers
-	for i := range equipmentList.Furnaces {
-		equipmentList.Furnaces[i].NormalizedModelNumber =
-			internal.NormalizeString(equipmentList.Furnaces[i].InputModelNumber, "furnace")
+	fmt.Printf("First 5 records:\n\n")
+	for i := 0; i < 5; i++ {
+		fmt.Printf("Outdoor Unit: \n%v\n\nIndoor Unit: \n%v\n\nFurnace: \n%v\n\nAHRI Number: %v\n\n\n",
+			ahriList[i].OutdoorUnit,
+			ahriList[i].IndoorUnit,
+			ahriList[i].Furnace,
+			ahriList[i].AHRINumber)
 	}
 
-	// Normalize outdoor unit (condenser/heat pump) model numbers
-	for i := range equipmentList.OutdoorUnits {
-		equipmentList.OutdoorUnits[i].NormalizedModelNumber =
-			internal.NormalizeString(equipmentList.OutdoorUnits[i].InputModelNumber, "outdoor")
-	}
+	// Build the ahri lookup match for equipment config certification:
 
-	// Normalize indoor unit model numbers (both air handlers and coils)
-	// We need to check what type of indoor unit it is to apply the correct normalization
-	for i := range equipmentList.IndoorUnits {
-		if equipmentList.IndoorUnits[i].AirHandler {
-			equipmentList.IndoorUnits[i].NormalizedModelNumber =
-				internal.NormalizeString(equipmentList.IndoorUnits[i].InputModelNumber, "airhandler")
-		} else {
-			equipmentList.IndoorUnits[i].NormalizedModelNumber =
-				internal.NormalizeString(equipmentList.IndoorUnits[i].InputModelNumber, "coil")
+	fmt.Printf("Building ahri cert lookup map...\n\n")
+	ahriMap := internal.BuildAHRIMap(ahriList)
+	fmt.Printf("Built ahri map with %d entries (including wildcard expansions)\n\n", len(ahriMap))
+	// for key, value := range ahriMap {
+	// 	fmt.Printf("Key: %v\nValue: %v\n\n\n", key, value)
+	// }
+
+	// Process through each brand and system type separately:
+	fmt.Printf("Generating equipment combo's and finding matches...\n\n")
+
+	allCertifiedMatches := make([]data_structures.OutputCSV, 0)
+	systemTypes := []string{
+		"central ac & air handler",
+		"central ac & furnace",
+		"heat pump & air handler",
+		"heat pump & furnace",
+	}
+	totalCombinations := 0
+
+	for brand := range brandMap {
+		fmt.Printf("Processing brand: %s\n\n", brand)
+
+		brandEquipment := internal.EquipmentSort(equipmentList, brand)
+		fmt.Printf("   Found %d pieces of equipment for %s\n\n", len(brandEquipment), brand)
+
+		for _, sysType := range systemTypes {
+			combo, err := internal.GenerateFullSystemEquipmentConfig(brandEquipment, sysType)
+			if err != nil {
+				log.Printf("   Warning: Error generating %s combinations for %s: %v", sysType, brand, err)
+				continue
+			}
+
+			if len(combo) == 0 {
+				continue
+			}
+
+			fmt.Printf("   Generated %d combinations for %s\n\n", len(combo), sysType)
+			totalCombinations += len(combo)
+
+			fmt.Printf("Number of combo's: %d", len(combo))
+			fmt.Printf("First 5 combo's:\n\n")
+			for i := 0; i < 5; i++ {
+				fmt.Printf("Combo %d:\nOutdoor Unit: \n%v\n\nIndoor Unit: \n%v\n\nFurnace: \n%v\n\nAHRI Number: %v\n\n\n",
+					i+1,
+					combo[i].OutdoorUnit,
+					combo[i].IndoorUnit,
+					combo[i].Furnace,
+					combo[i].SystemType)
+			}
+
+			certifiedMatches, err := internal.FindCertifiedMatches(combo, ahriMap)
+			if err != nil {
+				log.Printf("   Warning: Error finding matches for %s: %v", sysType, err)
+				continue
+			}
+
+			if len(certifiedMatches) > 0 {
+				fmt.Printf("   + Found %d certified matches for %s\n\n", len(certifiedMatches), sysType)
+				allCertifiedMatches = append(allCertifiedMatches, certifiedMatches...)
+			}
 		}
 	}
+	// Generate report on results:
+	separator := strings.Repeat("=", 60)
+	fmt.Printf("\n%s\n", separator)
+	fmt.Printf("SUMMARY\n")
+	fmt.Printf("%s\n", separator)
+	fmt.Printf("Total combinations checked: %d\n", totalCombinations)
+	fmt.Printf("Total certified matches found: %d\n", len(allCertifiedMatches))
 
-	fmt.Println("Equipment normalization complete")
-
-	// Step 4: Normalize AHRI database model numbers
-	// The AHRI data needs the same normalization so we can match it against our equipment
-	fmt.Println("\nNormalizing AHRI database model numbers...")
-	for i := range ahriList {
-		// Normalize each component in the AHRI record
-		ahriList[i].Furnace = internal.NormalizeString(ahriList[i].Furnace, "furnace")
-		ahriList[i].OutdoorUnit = internal.NormalizeString(ahriList[i].OutdoorUnit, "outdoor")
-		// For indoor units, we use "indoor" as a general type - the normalization
-		// function will handle it appropriately based on the model number format
-		ahriList[i].IndoorUnit = internal.NormalizeString(ahriList[i].IndoorUnit, "indoor")
+	if totalCombinations > 0 {
+		matchRate := float64(len(allCertifiedMatches)) / float64(totalCombinations) * 100
+		fmt.Printf("Match rate: %.2f%%\n", matchRate)
 	}
-	fmt.Println("AHRI database normalization complete")
+	// Create final csv output:
+	if len(allCertifiedMatches) > 0 {
+		outputFilename := "certified_hvac_matches.csv"
+		fmt.Printf("\nWriting certified matches to %s...\n\n", outputFilename)
 
-	// Step 5: Generate all possible equipment combinations
-	// This creates the Cartesian product of all components to see every possible
-	// way the equipment could be combined into complete HVAC systems
-	fmt.Println("\nGenerating possible equipment combinations...")
-
-	// Full systems include a furnace, indoor unit, and outdoor unit
-	fullSystemCombinations := internal.GenerateFullSystemEquipmentConfig(equipmentList)
-	fmt.Printf("Generated %d full system combinations (furnace + indoor + outdoor)\n",
-		len(fullSystemCombinations))
-
-	// Air handler systems don't include a furnace - just indoor and outdoor units
-	airHandlerCombinations := internal.GenerateAirHandlerEquipmentConfig(equipmentList)
-	fmt.Printf("Generated %d air handler combinations (indoor + outdoor)\n",
-		len(airHandlerCombinations))
-
-	totalCombinations := len(fullSystemCombinations) + len(airHandlerCombinations)
-	fmt.Printf("Total combinations to check: %d\n", totalCombinations)
-
-	// Step 6: Build the AHRI lookup map with wildcard expansion
-	// This creates a fast hash map where we can instantly check if any combination
-	// is certified. The wildcards in AHRI data are expanded to all their possible
-	// concrete values so we can do exact string matching
-	fmt.Println("\nBuilding AHRI certification lookup map...")
-	ahriMap := internal.BuildAHRIMap(ahriList)
-	fmt.Printf("AHRI map built with %d entries (includes wildcard expansions)\n", len(ahriMap))
-
-	// Step 7: Find all certified matches
-	// This checks each of our generated combinations against the AHRI database
-	// and collects only those that are officially certified
-	fmt.Println("\nSearching for certified equipment matches...")
-	certifiedMatches := internal.FindCertifiedMatches(
-		fullSystemCombinations,
-		airHandlerCombinations,
-		ahriMap,
-	)
-
-	// Report on what we found
-	fmt.Printf("\nFound %d certified matches out of %d total combinations\n",
-		len(certifiedMatches), totalCombinations)
-
-	// Calculate and display the match rate as a percentage
-	matchRate := float64(len(certifiedMatches)) / float64(totalCombinations) * 100
-	fmt.Printf("Match rate: %.2f%%\n", matchRate)
-
-	// Step 8: Write the certified matches to an output CSV file
-	// This creates a formatted file that can be opened in Excel or used by other systems
-	outputFilename := "certified_hvac_matches.csv"
-	fmt.Printf("\nWriting certified matches to %s...\n", outputFilename)
-
-	err = internal.WriteOutputCSV(certifiedMatches, outputFilename)
-	if err != nil {
-		log.Fatalf("Failed to write output CSV: %v", err)
+		err = internal.WriteOutputCSV(allCertifiedMatches, outputFilename)
+		if err != nil {
+			log.Fatalf("Failed to write output csv: %v", err)
+		}
+		fmt.Printf("\n✓ Complete! Certified matches have been written to %s\n", outputFilename)
+		fmt.Println("\nYou can now open this file in Excel or any spreadsheet program to view your results.")
+	} else {
+		fmt.Println("\nNo certified matches found. No output file generated.")
 	}
-
-	// Success! Let the user know where to find their results
-	fmt.Printf("\n✓ Complete! Certified matches have been written to %s\n", outputFilename)
-	fmt.Println("\nYou can now open this file in Excel or any spreadsheet program to view your results.")
 }

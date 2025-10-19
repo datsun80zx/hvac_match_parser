@@ -2,9 +2,9 @@ package data_structures
 
 type AHRIRecord struct {
 	AHRINumber  string
-	OutdoorUnit string
-	IndoorUnit  string
-	Furnace     string
+	OutdoorUnit Equipment
+	IndoorUnit  Equipment
+	Furnace     Equipment
 }
 
 type ComponentKey struct {

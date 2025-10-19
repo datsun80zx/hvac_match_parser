@@ -188,10 +188,16 @@ func CSVAHRIReader(s string) ([]data_structures.AHRIRecord, error) {
 			}
 		}
 		AHRIList = append(AHRIList, data_structures.AHRIRecord{
-			AHRINumber:  record[0],
-			OutdoorUnit: record[1],
-			IndoorUnit:  record[2],
-			Furnace:     record[3],
+			AHRINumber: record[0],
+			OutdoorUnit: data_structures.Equipment{
+				InputModelNumber: record[1],
+			},
+			IndoorUnit: data_structures.Equipment{
+				InputModelNumber: record[2],
+			},
+			Furnace: data_structures.Equipment{
+				InputModelNumber: record[3],
+			},
 		})
 	}
 	return AHRIList, nil
