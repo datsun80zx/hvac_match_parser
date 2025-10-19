@@ -9,7 +9,8 @@ type AHRIRecord struct {
 
 type ComponentKey struct {
 	Brand       string
-	Furnace     string
-	IndoorUnit  string
-	OutdoorUnit string
+	Furnace     Equipment
+	IndoorUnit  Equipment
+	OutdoorUnit Equipment
+	SystemType  string
 }
