@@ -183,15 +183,16 @@ func expandFurnaceWildcard(model string) []string {
 	}
 
 	// Create both variations: one with 'R', one with 'D'
-	variation1 := make([]rune, len(runes))
-	copy(variation1, runes)
-	variation1[wildcardPos] = 'R'
+	// variation1 := make([]rune, len(runes))
+	// copy(variation1, runes)
+	// variation1[wildcardPos] = 'R'
 
 	variation2 := make([]rune, len(runes))
 	copy(variation2, runes)
 	variation2[wildcardPos] = 'D'
 
-	return []string{string(variation1), string(variation2)}
+	// return []string{string(variation1), string(variation2)} // this option is if we are doing both upflow and downflow
+	return []string{string(variation2)}
 }
 
 func expandIndoorUnitWildcard(model string) []string {
@@ -295,6 +296,10 @@ func FindCertifiedMatches(
 	certifiedMatches := make([]data_structures.OutputCSV, 0)
 
 	for _, combo := range fullSystemCombos {
+		// remove this if statement if you to have horizontal coil matches as well
+		if combo.IndoorUnit.NormalizedModelNumber[1] == 'H' {
+			continue
+		}
 		ahriNumber, isCertified := FindAHRICertification(combo, ahriMap)
 
 		if !isCertified {
