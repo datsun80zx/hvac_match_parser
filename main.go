@@ -11,8 +11,8 @@ import (
 
 func main() {
 	// Define the paths to your input CSV files
-	csvFileEquip := "/home/richard/workspace/github.com/datsun80zx/go_practice/hvac_match_parser/Copy of Matchups - Amana Equipment.csv"
-	csvFileAHRI := "/home/richard/workspace/github.com/datsun80zx/go_practice/hvac_match_parser/Matchups - Amana AC Matchups.csv"
+	csvFileEquip := "C:/Users/mrich/Downloads/wilson_equip_list.csv"
+	csvFileAHRI := "C:/Users/mrich/Downloads/ahri_matches.csv"
 
 	// Define what column headers we are expecting to see in the equipment list csv:
 
@@ -131,7 +131,7 @@ func main() {
 			fmt.Printf("Number of combo's: %d", len(combo))
 			fmt.Printf("First 5 combo's:\n\n")
 			for i := 0; i < 5; i++ {
-				fmt.Printf("Combo %d:\nOutdoor Unit: \n%v\n\nIndoor Unit: \n%v\n\nFurnace: \n%v\n\nAHRI Number: %v\n\n\n",
+				fmt.Printf("Combo %d:\nOutdoor Unit: \n%v\n\nIndoor Unit: \n%v\n\nFurnace: \n%v\n\nSystem Type: %v\n\n\n",
 					i+1,
 					combo[i].OutdoorUnit,
 					combo[i].IndoorUnit,

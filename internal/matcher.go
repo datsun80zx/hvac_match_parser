@@ -44,7 +44,7 @@ func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType
 		} else if strings.Contains(item.Type, "hp") {
 			heatPumps = append(heatPumps, item)
 		} else {
-			return nil, fmt.Errorf("There is an issue with sorting equipment by type in the GenerateFullSystem..func")
+			return nil, fmt.Errorf("there is an issue with sorting equipment by type in the GenerateFullSystem..func")
 		}
 	}
 
@@ -108,7 +108,7 @@ func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType
 		}
 		return equipConfigs, nil
 	}
-	return nil, fmt.Errorf("There was an error processing all equipment configurations")
+	return nil, fmt.Errorf("there was an error processing all equipment configurations")
 }
 
 // func GenerateAirHandlerEquipmentConfig(e data_structures.Equipment) []data_structures.ComponentKey {
@@ -282,7 +282,7 @@ func FindAHRICertification(config data_structures.ComponentKey, ahriMap map[stri
 		config.Furnace.NormalizedModelNumber
 
 	// Look it up in the map
-	fmt.Printf("Looking up: %v\n\n", key)
+	// fmt.Printf("Looking up: %v\n\n", key)
 	ahriNumber, certified := ahriMap[key]
 	return ahriNumber, certified
 }

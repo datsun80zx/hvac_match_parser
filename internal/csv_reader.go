@@ -65,7 +65,7 @@ func WriteOutputCSV(matches []data_structures.OutputCSV, filename string) error 
 func GetCSVHeader(filename string, reqFields []string) (map[string]int, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		return nil, fmt.Errorf("There was an error with opening %s: %w", filename, err)
+		return nil, fmt.Errorf("there was an error with opening %s: %w", filename, err)
 	}
 	defer file.Close()
 

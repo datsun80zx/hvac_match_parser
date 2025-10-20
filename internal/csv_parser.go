@@ -13,7 +13,7 @@ Step 2: truncate length of string depending on type of equipment
 
 func NormalizeString(equipment data_structures.Equipment) data_structures.Equipment {
 	equipmentTypes := map[string]int{
-		"air handler":     12,
+		"air handler":     11,
 		"evaporator coil": 11,
 		"furnace":         11,
 		"condenser(ac)":   11,
