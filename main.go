@@ -128,7 +128,7 @@ func main() {
 			fmt.Printf("   Generated %d combinations for %s\n\n", len(combo), sysType)
 			totalCombinations += len(combo)
 
-			fmt.Printf("Number of combo's: %d", len(combo))
+			fmt.Printf("Number of combo's: %d\n", len(combo))
 			fmt.Printf("First 5 combo's:\n\n")
 			for i := 0; i < 5; i++ {
 				fmt.Printf("Combo %d:\nOutdoor Unit: \n%v\n\nIndoor Unit: \n%v\n\nFurnace: \n%v\n\nSystem Type: %v\n\n\n",
@@ -145,7 +145,7 @@ func main() {
 				continue
 			}
 
-			if len(certifiedMatches) > 0 {
+			if len(certifiedMatches) >= 0 {
 				fmt.Printf("   + Found %d certified matches for %s\n\n", len(certifiedMatches), sysType)
 				allCertifiedMatches = append(allCertifiedMatches, certifiedMatches...)
 			}
