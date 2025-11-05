@@ -107,6 +107,29 @@ func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType
 			}
 		}
 		return equipConfigs, nil
+	case "furnace":
+		for _, furnace := range furnaces {
+			equipCombo := data_structures.ComponentKey{
+				Brand:      furnace.Brand,
+				Furnace:    furnace,
+				SystemType: systemTypes["furnace"],
+			}
+			equipConfigs = append(equipConfigs, equipCombo)
+		}
+		return equipConfigs, nil
+	case "central ac":
+		for _, airCon := range airCons {
+			for _, coil := range coils {
+				equipCombo := data_structures.ComponentKey{
+					Brand:       airCon.Brand,
+					IndoorUnit:  coil,
+					OutdoorUnit: airCon,
+					SystemType:  systemTypes["central ac"],
+				}
+				equipConfigs = append(equipConfigs, equipCombo)
+			}
+		}
+		return equipConfigs, nil
 	}
 	return nil, fmt.Errorf("there was an error processing all equipment configurations")
 }
@@ -296,66 +319,151 @@ func FindCertifiedMatches(
 	certifiedMatches := make([]data_structures.OutputCSV, 0)
 
 	for _, combo := range fullSystemCombos {
-		// remove this if statement if you to have horizontal coil matches as well
-		if combo.IndoorUnit.NormalizedModelNumber[1] == 'H' {
+		// Handle system types that don't need AHRI certification
+		if combo.SystemType == systemTypes["furnace"] {
+			output := data_structures.OutputCSV{
+				Brand:        combo.Brand,
+				Orientation:  "",
+				Furnace:      combo.Furnace.InputModelNumber,
+				TypeOfSystem: combo.SystemType,
+			}
+			certifiedMatches = append(certifiedMatches, output)
 			continue
 		}
-		// filter out tonnage and cabinet size mismatches:
-		if strings.Contains(combo.IndoorUnit.Type, "coil") {
-			if combo.OutdoorUnit.NormalizedModelNumber[7:9] != combo.IndoorUnit.NormalizedModelNumber[5:7] || combo.IndoorUnit.NormalizedModelNumber[9] != combo.Furnace.NormalizedModelNumber[10] {
+
+		if combo.SystemType == systemTypes["central ac"] {
+			// Apply filters for central ac systems
+			if !isValidIndoorUnit(combo.IndoorUnit) {
+				continue
+			}
+			if !isValidTonnageMatch(combo.OutdoorUnit, combo.IndoorUnit) {
 				continue
 			}
 
+			output := data_structures.OutputCSV{
+				Brand:          combo.Brand,
+				Orientation:    "",
+				OutdoorUnit:    combo.OutdoorUnit.InputModelNumber,
+				EvaporatorCoil: combo.IndoorUnit.InputModelNumber,
+				TypeOfSystem:   combo.SystemType,
+			}
+			certifiedMatches = append(certifiedMatches, output)
+			continue
 		}
-		ahriNumber, isCertified := FindAHRICertification(combo, ahriMap)
 
+		// For all other system types, apply standard filters and AHRI lookup
+
+		// Filter out horizontal coils
+		if !isValidIndoorUnit(combo.IndoorUnit) {
+			continue
+		}
+
+		// Filter tonnage and cabinet mismatches for systems with coils and furnaces
+		if needsCabinetValidation(combo.SystemType) {
+			if !isValidCabinetAndTonnage(combo) {
+				continue
+			}
+		}
+
+		// Lookup AHRI certification
+		ahriNumber, isCertified := FindAHRICertification(combo, ahriMap)
 		if !isCertified {
 			continue
 		}
 
-		output := data_structures.OutputCSV{
-			AHRINumber:   ahriNumber,
-			Brand:        combo.Brand,
-			Orientation:  "",
-			TypeOfSystem: combo.SystemType,
-		}
-
-		switch combo.SystemType {
-		case systemTypes["central ac"]:
-			output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
-			output.EvaporatorCoil = combo.IndoorUnit.InputModelNumber
-
-		case systemTypes["central ac & air handler"]:
-			output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
-			output.AirHandler = combo.IndoorUnit.InputModelNumber
-
-		case systemTypes["central ac & furnace"]:
-			output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
-			output.Furnace = combo.Furnace.InputModelNumber
-			output.EvaporatorCoil = combo.IndoorUnit.InputModelNumber
-
-		case systemTypes["heat pump & air handler"]:
-			output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
-			output.AirHandler = combo.IndoorUnit.InputModelNumber
-
-		case systemTypes["heat pump & furnace"]:
-			output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
-			output.Furnace = combo.Furnace.InputModelNumber
-			output.EvaporatorCoil = combo.IndoorUnit.InputModelNumber
-
-		case systemTypes["heat pump"]:
-			output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
-			output.EvaporatorCoil = combo.IndoorUnit.InputModelNumber
-
-		case systemTypes["furnace"]:
-			output.Furnace = combo.Furnace.InputModelNumber
-
-		default:
-			return nil, fmt.Errorf("unknown system type: %s", combo.SystemType)
-		}
-
+		output := createAHRIOutput(combo, ahriNumber)
 		certifiedMatches = append(certifiedMatches, output)
 	}
 
 	return certifiedMatches, nil
+}
+
+// Helper functions for safer validation
+func isValidIndoorUnit(indoor data_structures.Equipment) bool {
+	if len(indoor.NormalizedModelNumber) < 2 {
+		return false
+	}
+	// Filter out horizontal coils
+	return indoor.NormalizedModelNumber[1] != 'H'
+}
+
+func isValidTonnageMatch(outdoor, indoor data_structures.Equipment) bool {
+	outdoorModel := outdoor.NormalizedModelNumber
+	indoorModel := indoor.NormalizedModelNumber
+
+	// Check we have enough characters
+	if len(outdoorModel) < 9 || len(indoorModel) < 7 {
+		return false
+	}
+
+	// Compare tonnage (outdoor positions 7-9 vs indoor positions 5-7)
+	return outdoorModel[7:9] == indoorModel[5:7]
+}
+
+func isValidCabinetAndTonnage(combo data_structures.ComponentKey) bool {
+	outdoor := combo.OutdoorUnit.NormalizedModelNumber
+	indoor := combo.IndoorUnit.NormalizedModelNumber
+	furnace := combo.Furnace.NormalizedModelNumber
+
+	// Verify we have coils to check
+	if !strings.Contains(combo.IndoorUnit.Type, "coil") {
+		return true // Not applicable
+	}
+
+	// Check string lengths
+	if len(outdoor) < 9 || len(indoor) < 10 || len(furnace) < 11 {
+		return false
+	}
+
+	// Check tonnage match
+	if outdoor[7:9] != indoor[5:7] {
+		return false
+	}
+
+	// Check cabinet size match
+	if indoor[9] != furnace[10] {
+		return false
+	}
+
+	return true
+}
+
+func needsCabinetValidation(systemType string) bool {
+	return systemType == systemTypes["central ac & furnace"] ||
+		systemType == systemTypes["heat pump & furnace"]
+}
+
+func createAHRIOutput(combo data_structures.ComponentKey, ahriNumber string) data_structures.OutputCSV {
+	output := data_structures.OutputCSV{
+		AHRINumber:   ahriNumber,
+		Brand:        combo.Brand,
+		Orientation:  "",
+		TypeOfSystem: combo.SystemType,
+	}
+
+	switch combo.SystemType {
+	case systemTypes["central ac & air handler"]:
+		output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
+		output.AirHandler = combo.IndoorUnit.InputModelNumber
+
+	case systemTypes["central ac & furnace"]:
+		output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
+		output.Furnace = combo.Furnace.InputModelNumber
+		output.EvaporatorCoil = combo.IndoorUnit.InputModelNumber
+
+	case systemTypes["heat pump & air handler"]:
+		output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
+		output.AirHandler = combo.IndoorUnit.InputModelNumber
+
+	case systemTypes["heat pump & furnace"]:
+		output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
+		output.Furnace = combo.Furnace.InputModelNumber
+		output.EvaporatorCoil = combo.IndoorUnit.InputModelNumber
+
+	case systemTypes["heat pump"]:
+		output.OutdoorUnit = combo.OutdoorUnit.InputModelNumber
+		output.EvaporatorCoil = combo.IndoorUnit.InputModelNumber
+	}
+
+	return output
 }

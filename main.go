@@ -101,6 +101,8 @@ func main() {
 
 	allCertifiedMatches := make([]data_structures.OutputCSV, 0)
 	systemTypes := []string{
+		"central ac",
+		"furnace",
 		"central ac & air handler",
 		"central ac & furnace",
 		"heat pump & air handler",
