@@ -59,7 +59,24 @@ func main() {
 		equipmentList[i] = internal.NormalizeString(equipmentList[i])
 	}
 	fmt.Printf("Equipment normalization complete!\n\n")
+	fmt.Printf("Categorizing equipment (standard vs communicating)...\n\n")
+	for i := range equipmentList {
+		equipmentList[i] = internal.CategorizeEquipment(equipmentList[i])
+	}
+	fmt.Printf("Equipment categorization complete!\n\n")
 
+	// Optional: Add some logging to show categorization results
+	standardCount := 0
+	communicatingCount := 0
+	for _, equip := range equipmentList {
+		if equip.Category == data_structures.CategoryStandard {
+			standardCount++
+		} else if equip.Category == data_structures.CategoryCommunicating {
+			communicatingCount++
+		}
+	}
+	fmt.Printf("Standard equipment: %d\n", standardCount)
+	fmt.Printf("Communicating equipment: %d\n\n", communicatingCount)
 	fmt.Printf("First 5 pieces:\n\n")
 
 	for i := 0; i < 5; i++ {

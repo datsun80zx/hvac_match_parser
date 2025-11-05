@@ -72,3 +72,44 @@ func BrandIdentify(list []data_structures.Equipment) map[string]bool {
 
 	return brandMap
 }
+
+func CategorizeEquipment(equipment data_structures.Equipment) data_structures.Equipment {
+	modelLower := strings.ToLower(equipment.NormalizedModelNumber)
+	typeLower := strings.ToLower(equipment.Type)
+
+	// Check for air handlers
+	if strings.Contains(typeLower, "handler") || strings.Contains(typeLower, "air handler") {
+		if strings.Contains(modelLower, "ahve") {
+			equipment.Category = data_structures.CategoryCommunicating
+			return equipment
+		}
+	}
+
+	// Check for evaporator coils
+	if strings.Contains(typeLower, "coil") {
+		if strings.Contains(modelLower, "capea") {
+			equipment.Category = data_structures.CategoryCommunicating
+			return equipment
+		}
+	}
+
+	// Check for AC outdoor units (both "condenser(ac)" and "outdoor unit (ac)")
+	if strings.Contains(typeLower, "ac") {
+		if strings.Contains(modelLower, "axv") || strings.Contains(modelLower, "gxv") {
+			equipment.Category = data_structures.CategoryCommunicating
+			return equipment
+		}
+	}
+
+	// Check for heat pump outdoor units (both "condenser(hp)" and "outdoor unit (hp)")
+	if strings.Contains(typeLower, "hp") {
+		if strings.Contains(modelLower, "aszv9") || strings.Contains(modelLower, "azv6") || strings.Contains(modelLower, "gszv9") || strings.Contains(modelLower, "gzv6") {
+			equipment.Category = data_structures.CategoryCommunicating
+			return equipment
+		}
+	}
+
+	// Default to standard
+	equipment.Category = data_structures.CategoryStandard
+	return equipment
+}

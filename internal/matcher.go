@@ -18,206 +18,170 @@ var systemTypes = map[string]string{
 }
 
 /*
-	The idea here is to generate a Cartesian product of the different system types.
-
-It is important that the list of equipment provided to this function is all of the same brand and is a valid
-system type
+GenerateFullSystemEquipmentConfig generates a Cartesian product of equipment combinations.
+It now separates standard and communicating equipment to ensure proper pairing.
+Equipment list provided must all be from the same brand.
 */
 func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType string) ([]data_structures.ComponentKey, error) {
-	equipConfigs := make([]data_structures.ComponentKey, 0)
+	// Create nested map: equipByTypeAndCategory[type][category][]Equipment
+	equipByTypeAndCategory := make(map[string]map[string][]data_structures.Equipment)
 
-	furnaces := []data_structures.Equipment{}
-	airHandlers := []data_structures.Equipment{}
-	comAirHandlers := []data_structures.Equipment{}
-	coils := []data_structures.Equipment{}
-	comCoils := []data_structures.Equipment{}
-	airCons := []data_structures.Equipment{}
-	comAirCons := []data_structures.Equipment{}
-	heatPumps := []data_structures.Equipment{}
-	comHeatPumps := []data_structures.Equipment{}
+	types := []string{"furnace", "handler", "coil", "ac", "hp"}
+	categories := []string{data_structures.CategoryStandard, data_structures.CategoryCommunicating}
 
-	for _, item := range list {
-		if strings.Contains(item.Type, "furnace") {
-			furnaces = append(furnaces, item)
-		} else if strings.Contains(item.Type, "handler") {
-			if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "ahve") {
-				comAirHandlers = append(comAirHandlers, item)
-			} else {
-				airHandlers = append(airHandlers, item)
-			}
-		} else if strings.Contains(item.Type, "coil") {
-			if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "capea") {
-				comCoils = append(comCoils, item)
-			} else {
-				coils = append(coils, item)
-			}
-
-		} else if strings.Contains(item.Type, "ac") {
-			if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "asxv9") {
-				comAirCons = append(comAirCons, item)
-			} else if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "axv6") {
-				comAirCons = append(comAirCons, item)
-			} else {
-				airCons = append(airCons, item)
-			}
-		} else if strings.Contains(item.Type, "hp") {
-			if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "aszv9") {
-				comHeatPumps = append(comHeatPumps, item)
-			} else if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "azv6") {
-				comHeatPumps = append(comHeatPumps, item)
-			} else {
-				heatPumps = append(heatPumps, item)
-			}
-		} else {
-			return nil, fmt.Errorf("there is an issue with sorting equipment by type in the GenerateFullSystem..func")
+	// Initialize nested maps
+	for _, t := range types {
+		equipByTypeAndCategory[t] = make(map[string][]data_structures.Equipment)
+		for _, c := range categories {
+			equipByTypeAndCategory[t][c] = []data_structures.Equipment{}
 		}
 	}
+
+	// Sort equipment by type and category
+	for _, item := range list {
+		if strings.Contains(item.Type, "furnace") {
+			equipByTypeAndCategory["furnace"][item.Category] = append(
+				equipByTypeAndCategory["furnace"][item.Category], item)
+		} else if strings.Contains(item.Type, "handler") {
+			equipByTypeAndCategory["handler"][item.Category] = append(
+				equipByTypeAndCategory["handler"][item.Category], item)
+		} else if strings.Contains(item.Type, "coil") {
+			equipByTypeAndCategory["coil"][item.Category] = append(
+				equipByTypeAndCategory["coil"][item.Category], item)
+		} else if strings.Contains(item.Type, "ac") {
+			equipByTypeAndCategory["ac"][item.Category] = append(
+				equipByTypeAndCategory["ac"][item.Category], item)
+		} else if strings.Contains(item.Type, "hp") {
+			equipByTypeAndCategory["hp"][item.Category] = append(
+				equipByTypeAndCategory["hp"][item.Category], item)
+		} else {
+			return nil, fmt.Errorf("unknown equipment type: %s", item.Type)
+		}
+	}
+
+	equipConfigs := make([]data_structures.ComponentKey, 0)
+
+	// Generate combinations for each category separately
+	// This ensures communicating equipment only pairs with communicating equipment
+	for _, category := range categories {
+		combos, err := generateCombosForCategory(
+			equipByTypeAndCategory,
+			category,
+			sysType,
+		)
+		if err != nil {
+			return nil, err
+		}
+		equipConfigs = append(equipConfigs, combos...)
+	}
+
+	return equipConfigs, nil
+}
+
+// generateCombosForCategory creates equipment combinations within a single category
+// This ensures standard equipment doesn't mix with communicating equipment
+// Note: Furnaces are shared across categories since they work with both types
+func generateCombosForCategory(
+	equipMap map[string]map[string][]data_structures.Equipment,
+	category string,
+	sysType string,
+) ([]data_structures.ComponentKey, error) {
+
+	equipConfigs := make([]data_structures.ComponentKey, 0)
+
+	// Get equipment for this category
+	// Furnaces are shared - combine both standard and communicating (though typically all standard)
+	furnaces := append(equipMap["furnace"][data_structures.CategoryStandard],
+		equipMap["furnace"][data_structures.CategoryCommunicating]...)
+	airHandlers := equipMap["handler"][category]
+	coils := equipMap["coil"][category]
+	airCons := equipMap["ac"][category]
+	heatPumps := equipMap["hp"][category]
 
 	switch sysType {
 	case "heat pump & air handler":
-		for _, heatPump := range heatPumps {
-			for _, airHandler := range airHandlers {
-				equipCombo := data_structures.ComponentKey{
-					Brand:       heatPump.Brand,
-					IndoorUnit:  airHandler,
-					OutdoorUnit: heatPump,
+		for _, hp := range heatPumps {
+			for _, ah := range airHandlers {
+				equipConfigs = append(equipConfigs, data_structures.ComponentKey{
+					Brand:       hp.Brand,
+					IndoorUnit:  ah,
+					OutdoorUnit: hp,
 					SystemType:  systemTypes["heat pump & air handler"],
-				}
-				equipConfigs = append(equipConfigs, equipCombo)
-			}
-		}
-		for _, comHeatPump := range comHeatPumps {
-			for _, comAirHandler := range comAirHandlers {
-				equipCombo := data_structures.ComponentKey{
-					Brand:       comHeatPump.Brand,
-					IndoorUnit:  comAirHandler,
-					OutdoorUnit: comHeatPump,
-					SystemType:  systemTypes["heat pump & air handler"],
-				}
-				equipConfigs = append(equipConfigs, equipCombo)
+				})
 			}
 		}
 		return equipConfigs, nil
+
 	case "heat pump & furnace":
-		for _, heatPump := range heatPumps {
-			for _, furnace := range furnaces {
-				for _, coil := range coils {
-					equipCombo := data_structures.ComponentKey{
-						Brand:       heatPump.Brand,
-						IndoorUnit:  coil,
-						Furnace:     furnace,
-						OutdoorUnit: heatPump,
+		for _, hp := range heatPumps {
+			for _, f := range furnaces {
+				for _, c := range coils {
+					equipConfigs = append(equipConfigs, data_structures.ComponentKey{
+						Brand:       hp.Brand,
+						IndoorUnit:  c,
+						Furnace:     f,
+						OutdoorUnit: hp,
 						SystemType:  systemTypes["heat pump & furnace"],
-					}
-					equipConfigs = append(equipConfigs, equipCombo)
-				}
-			}
-		}
-		for _, comHeatPump := range comHeatPumps {
-			for _, furnace := range furnaces {
-				for _, comCoil := range comCoils {
-					equipCombo := data_structures.ComponentKey{
-						Brand:       comHeatPump.Brand,
-						IndoorUnit:  comCoil,
-						Furnace:     furnace,
-						OutdoorUnit: comHeatPump,
-						SystemType:  systemTypes["heat pump & furnace"],
-					}
-					equipConfigs = append(equipConfigs, equipCombo)
+					})
 				}
 			}
 		}
 		return equipConfigs, nil
+
 	case "central ac & furnace":
-		for _, airCon := range airCons {
-			for _, furnace := range furnaces {
-				for _, coil := range coils {
-					equipCombo := data_structures.ComponentKey{
-						Brand:       airCon.Brand,
-						IndoorUnit:  coil,
-						Furnace:     furnace,
-						OutdoorUnit: airCon,
+		for _, ac := range airCons {
+			for _, f := range furnaces {
+				for _, c := range coils {
+					equipConfigs = append(equipConfigs, data_structures.ComponentKey{
+						Brand:       ac.Brand,
+						IndoorUnit:  c,
+						Furnace:     f,
+						OutdoorUnit: ac,
 						SystemType:  systemTypes["central ac & furnace"],
-					}
-					equipConfigs = append(equipConfigs, equipCombo)
-				}
-			}
-		}
-		for _, comAirCon := range comAirCons {
-			for _, furnace := range furnaces {
-				for _, comCoil := range comCoils {
-					equipCombo := data_structures.ComponentKey{
-						Brand:       comAirCon.Brand,
-						IndoorUnit:  comCoil,
-						Furnace:     furnace,
-						OutdoorUnit: comAirCon,
-						SystemType:  systemTypes["central ac & furnace"],
-					}
-					equipConfigs = append(equipConfigs, equipCombo)
+					})
 				}
 			}
 		}
 		return equipConfigs, nil
+
 	case "central ac & air handler":
-		for _, airCon := range airCons {
-			for _, airHandler := range airHandlers {
-				equipCombo := data_structures.ComponentKey{
-					Brand:       airCon.Brand,
-					IndoorUnit:  airHandler,
-					OutdoorUnit: airCon,
+		for _, ac := range airCons {
+			for _, ah := range airHandlers {
+				equipConfigs = append(equipConfigs, data_structures.ComponentKey{
+					Brand:       ac.Brand,
+					IndoorUnit:  ah,
+					OutdoorUnit: ac,
 					SystemType:  systemTypes["central ac & air handler"],
-				}
-				equipConfigs = append(equipConfigs, equipCombo)
-			}
-		}
-		for _, comAirCon := range comAirCons {
-			for _, comAirHandler := range comAirHandlers {
-				equipCombo := data_structures.ComponentKey{
-					Brand:       comAirCon.Brand,
-					IndoorUnit:  comAirHandler,
-					OutdoorUnit: comAirCon,
-					SystemType:  systemTypes["central ac & air handler"],
-				}
-				equipConfigs = append(equipConfigs, equipCombo)
+				})
 			}
 		}
 		return equipConfigs, nil
+
 	case "furnace":
-		for _, furnace := range furnaces {
-			equipCombo := data_structures.ComponentKey{
-				Brand:      furnace.Brand,
-				Furnace:    furnace,
+		for _, f := range furnaces {
+			equipConfigs = append(equipConfigs, data_structures.ComponentKey{
+				Brand:      f.Brand,
+				Furnace:    f,
 				SystemType: systemTypes["furnace"],
-			}
-			equipConfigs = append(equipConfigs, equipCombo)
+			})
 		}
 		return equipConfigs, nil
+
 	case "central ac":
-		for _, airCon := range airCons {
-			for _, coil := range coils {
-				equipCombo := data_structures.ComponentKey{
-					Brand:       airCon.Brand,
-					IndoorUnit:  coil,
-					OutdoorUnit: airCon,
+		for _, ac := range airCons {
+			for _, c := range coils {
+				equipConfigs = append(equipConfigs, data_structures.ComponentKey{
+					Brand:       ac.Brand,
+					IndoorUnit:  c,
+					OutdoorUnit: ac,
 					SystemType:  systemTypes["central ac"],
-				}
-				equipConfigs = append(equipConfigs, equipCombo)
-			}
-		}
-		for _, comAirCon := range comAirCons {
-			for _, comCoil := range comCoils {
-				equipCombo := data_structures.ComponentKey{
-					Brand:       comAirCon.Brand,
-					IndoorUnit:  comCoil,
-					OutdoorUnit: comAirCon,
-					SystemType:  systemTypes["central ac"],
-				}
-				equipConfigs = append(equipConfigs, equipCombo)
+				})
 			}
 		}
 		return equipConfigs, nil
 	}
-	return nil, fmt.Errorf("there was an error processing all equipment configurations")
+
+	return equipConfigs, nil
 }
 
 func expandFurnaceWildcard(model string) []string {
@@ -252,8 +216,7 @@ func expandFurnaceWildcard(model string) []string {
 	copy(variation2, runes)
 	variation2[wildcardPos] = 'D'
 
-	return []string{string(variation1), string(variation2)} // this option is if we are doing both upflow and downflow
-	// return []string{string(variation2)}
+	return []string{string(variation1), string(variation2)}
 }
 
 func expandIndoorUnitWildcard(model string) []string {
@@ -344,7 +307,6 @@ func FindAHRICertification(config data_structures.ComponentKey, ahriMap map[stri
 		config.Furnace.NormalizedModelNumber
 
 	// Look it up in the map
-	// fmt.Printf("Looking up: %v\n\n", key)
 	ahriNumber, certified := ahriMap[key]
 	return ahriNumber, certified
 }

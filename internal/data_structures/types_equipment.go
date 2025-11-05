@@ -5,6 +5,7 @@ type Equipment struct {
 	NormalizedModelNumber string
 	Brand                 string
 	Type                  string
+	Category              string // "standard" or "communicating"
 }
 
 const (
@@ -13,4 +14,9 @@ const (
 	TypeHeatPump    = "heat pump"
 	TypeEvapCoil    = "evaporator coil"
 	TypeAirHandler  = "air handler"
+)
+
+const (
+	CategoryStandard      = "standard"
+	CategoryCommunicating = "communicating"
 )
