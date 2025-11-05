@@ -11,8 +11,8 @@ import (
 
 func main() {
 	// Define the paths to your input CSV files
-	csvFileEquip := "C:/Users/mrich/Downloads/wilson_equip_list.csv"
-	csvFileAHRI := "C:/Users/mrich/Downloads/ahri_matches.csv"
+	csvFileEquip := "C:/Users/mrich/dev_work/hvac_match_parser/data/wilson_equip_list.csv"
+	csvFileAHRI := "C:/Users/mrich/dev_work/hvac_match_parser/data/ahri_matches.csv"
 
 	// Define what column headers we are expecting to see in the equipment list csv:
 
@@ -167,7 +167,7 @@ func main() {
 	}
 	// Create final csv output:
 	if len(allCertifiedMatches) > 0 {
-		outputFilename := "certified_hvac_matches.csv"
+		outputFilename := "C:/Users/mrich/OneDrive/Wilson/wilson_hvac_matches/certified_hvac_matches.csv"
 		fmt.Printf("\nWriting certified matches to %s...\n\n", outputFilename)
 
 		err = internal.WriteOutputCSV(allCertifiedMatches, outputFilename)

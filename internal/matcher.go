@@ -28,21 +28,46 @@ func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType
 
 	furnaces := []data_structures.Equipment{}
 	airHandlers := []data_structures.Equipment{}
+	comAirHandlers := []data_structures.Equipment{}
 	coils := []data_structures.Equipment{}
+	comCoils := []data_structures.Equipment{}
 	airCons := []data_structures.Equipment{}
+	comAirCons := []data_structures.Equipment{}
 	heatPumps := []data_structures.Equipment{}
+	comHeatPumps := []data_structures.Equipment{}
 
 	for _, item := range list {
 		if strings.Contains(item.Type, "furnace") {
 			furnaces = append(furnaces, item)
 		} else if strings.Contains(item.Type, "handler") {
-			airHandlers = append(airHandlers, item)
+			if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "ahve") {
+				comAirHandlers = append(comAirHandlers, item)
+			} else {
+				airHandlers = append(airHandlers, item)
+			}
 		} else if strings.Contains(item.Type, "coil") {
-			coils = append(coils, item)
+			if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "capea") {
+				comCoils = append(comCoils, item)
+			} else {
+				coils = append(coils, item)
+			}
+
 		} else if strings.Contains(item.Type, "ac") {
-			airCons = append(airCons, item)
+			if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "asxv9") {
+				comAirCons = append(comAirCons, item)
+			} else if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "axv6") {
+				comAirCons = append(comAirCons, item)
+			} else {
+				airCons = append(airCons, item)
+			}
 		} else if strings.Contains(item.Type, "hp") {
-			heatPumps = append(heatPumps, item)
+			if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "aszv9") {
+				comHeatPumps = append(comHeatPumps, item)
+			} else if strings.ContainsAny(strings.ToLower(item.NormalizedModelNumber), "azv6") {
+				comHeatPumps = append(comHeatPumps, item)
+			} else {
+				heatPumps = append(heatPumps, item)
+			}
 		} else {
 			return nil, fmt.Errorf("there is an issue with sorting equipment by type in the GenerateFullSystem..func")
 		}
@@ -61,6 +86,17 @@ func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType
 				equipConfigs = append(equipConfigs, equipCombo)
 			}
 		}
+		for _, comHeatPump := range comHeatPumps {
+			for _, comAirHandler := range comAirHandlers {
+				equipCombo := data_structures.ComponentKey{
+					Brand:       comHeatPump.Brand,
+					IndoorUnit:  comAirHandler,
+					OutdoorUnit: comHeatPump,
+					SystemType:  systemTypes["heat pump & air handler"],
+				}
+				equipConfigs = append(equipConfigs, equipCombo)
+			}
+		}
 		return equipConfigs, nil
 	case "heat pump & furnace":
 		for _, heatPump := range heatPumps {
@@ -71,6 +107,20 @@ func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType
 						IndoorUnit:  coil,
 						Furnace:     furnace,
 						OutdoorUnit: heatPump,
+						SystemType:  systemTypes["heat pump & furnace"],
+					}
+					equipConfigs = append(equipConfigs, equipCombo)
+				}
+			}
+		}
+		for _, comHeatPump := range comHeatPumps {
+			for _, furnace := range furnaces {
+				for _, comCoil := range comCoils {
+					equipCombo := data_structures.ComponentKey{
+						Brand:       comHeatPump.Brand,
+						IndoorUnit:  comCoil,
+						Furnace:     furnace,
+						OutdoorUnit: comHeatPump,
 						SystemType:  systemTypes["heat pump & furnace"],
 					}
 					equipConfigs = append(equipConfigs, equipCombo)
@@ -93,6 +143,20 @@ func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType
 				}
 			}
 		}
+		for _, comAirCon := range comAirCons {
+			for _, furnace := range furnaces {
+				for _, comCoil := range comCoils {
+					equipCombo := data_structures.ComponentKey{
+						Brand:       comAirCon.Brand,
+						IndoorUnit:  comCoil,
+						Furnace:     furnace,
+						OutdoorUnit: comAirCon,
+						SystemType:  systemTypes["central ac & furnace"],
+					}
+					equipConfigs = append(equipConfigs, equipCombo)
+				}
+			}
+		}
 		return equipConfigs, nil
 	case "central ac & air handler":
 		for _, airCon := range airCons {
@@ -101,6 +165,17 @@ func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType
 					Brand:       airCon.Brand,
 					IndoorUnit:  airHandler,
 					OutdoorUnit: airCon,
+					SystemType:  systemTypes["central ac & air handler"],
+				}
+				equipConfigs = append(equipConfigs, equipCombo)
+			}
+		}
+		for _, comAirCon := range comAirCons {
+			for _, comAirHandler := range comAirHandlers {
+				equipCombo := data_structures.ComponentKey{
+					Brand:       comAirCon.Brand,
+					IndoorUnit:  comAirHandler,
+					OutdoorUnit: comAirCon,
 					SystemType:  systemTypes["central ac & air handler"],
 				}
 				equipConfigs = append(equipConfigs, equipCombo)
@@ -129,58 +204,21 @@ func GenerateFullSystemEquipmentConfig(list []data_structures.Equipment, sysType
 				equipConfigs = append(equipConfigs, equipCombo)
 			}
 		}
+		for _, comAirCon := range comAirCons {
+			for _, comCoil := range comCoils {
+				equipCombo := data_structures.ComponentKey{
+					Brand:       comAirCon.Brand,
+					IndoorUnit:  comCoil,
+					OutdoorUnit: comAirCon,
+					SystemType:  systemTypes["central ac"],
+				}
+				equipConfigs = append(equipConfigs, equipCombo)
+			}
+		}
 		return equipConfigs, nil
 	}
 	return nil, fmt.Errorf("there was an error processing all equipment configurations")
 }
-
-// func GenerateAirHandlerEquipmentConfig(e data_structures.Equipment) []data_structures.ComponentKey {
-// 	equipConfigs := make([]data_structures.ComponentKey, 0)
-
-// 	// Collect all unique brands
-// 	brandMap := make(map[string]bool)
-
-// 	for _, indoor := range e.IndoorUnits {
-// 		brandMap[indoor.Brand] = true
-// 	}
-// 	for _, outdoor := range e.OutdoorUnits {
-// 		brandMap[outdoor.Brand] = true
-// 	}
-
-// 	// Process each brand separately
-// 	for brand := range brandMap {
-// 		// Pre-allocate with estimated capacity
-// 		brandIndoorUnits := make([]data_structures.IndoorUnit, 0, len(e.IndoorUnits)/len(brandMap))
-// 		brandOutdoorUnits := make([]data_structures.OutdoorUnit, 0, len(e.OutdoorUnits)/len(brandMap))
-
-// 		// Filter to only this brand's equipment
-// 		for _, indoor := range e.IndoorUnits {
-// 			if indoor.Brand == brand {
-// 				brandIndoorUnits = append(brandIndoorUnits, indoor)
-// 			}
-// 		}
-
-// 		for _, outdoor := range e.OutdoorUnits {
-// 			if outdoor.Brand == brand {
-// 				brandOutdoorUnits = append(brandOutdoorUnits, outdoor)
-// 			}
-// 		}
-
-// 		// Generate combinations only within this brand
-// 		for _, indoorUnit := range brandIndoorUnits {
-// 			for _, outdoorUnit := range brandOutdoorUnits {
-// 				equipConfig := data_structures.ComponentKey{
-// 					Brand:       indoorUnit.Brand,
-// 					IndoorUnit:  indoorUnit,
-// 					OutdoorUnit: outdoorUnit,
-// 				}
-// 				equipConfigs = append(equipConfigs, equipConfig)
-// 			}
-// 		}
-// 	}
-
-// 	return equipConfigs
-// }
 
 func expandFurnaceWildcard(model string) []string {
 	// If the model doesn't have a wildcard, return it as-is
@@ -392,12 +430,12 @@ func isValidTonnageMatch(outdoor, indoor data_structures.Equipment) bool {
 	indoorModel := indoor.NormalizedModelNumber
 
 	// Check we have enough characters
-	if len(outdoorModel) < 9 || len(indoorModel) < 7 {
+	if len(outdoorModel) < 4 || len(indoorModel) < 7 {
 		return false
 	}
 
-	// Compare tonnage (outdoor positions 7-9 vs indoor positions 5-7)
-	return outdoorModel[7:9] == indoorModel[5:7]
+	// Compare tonnage (outdoor 4th and 3rd from end vs indoor positions 5-7)
+	return outdoorModel[len(outdoorModel)-4:len(outdoorModel)-2] == indoorModel[5:7]
 }
 
 func isValidCabinetAndTonnage(combo data_structures.ComponentKey) bool {
@@ -411,12 +449,12 @@ func isValidCabinetAndTonnage(combo data_structures.ComponentKey) bool {
 	}
 
 	// Check string lengths
-	if len(outdoor) < 9 || len(indoor) < 10 || len(furnace) < 11 {
+	if len(outdoor) < 4 || len(indoor) < 10 || len(furnace) < 11 {
 		return false
 	}
 
-	// Check tonnage match
-	if outdoor[7:9] != indoor[5:7] {
+	// Check tonnage match (outdoor 4th and 3rd from end)
+	if outdoor[len(outdoor)-4:len(outdoor)-2] != indoor[5:7] {
 		return false
 	}
 
